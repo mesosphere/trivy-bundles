@@ -1,0 +1,31 @@
+name: challenge1
+
+#on: push
+
+on:
+
+  workflow_dispatch:
+
+  # Triggers the workflow every 1 minutes
+  #schedule:
+  #  - cron: "*/1 * * * *"
+
+jobs:
+  get-tags:
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: oprypin/find-latest-tag@v1
+        with:
+          repository: octokit/rest.js             # This is the repository to scan  # Change repo for mesosphere/dkp-insights.git 
+          releases-only: false                    # Whether to only consider tags associated to releases or not
+        id: octokit                               # The step ID to refer to later   # Change name for get-all-dkp-insights-tags
+
+      - run: echo "Octokit is at version ${{ steps.octokit.outputs.tag }}"
+
+#      - uses: actions/checkout@v3
+#        with:
+#          repository: octokit/rest.js             # Download that repository.
+#          ref: ${{ steps.octokit.outputs.tag }}   # At the latest released version, found earlier.
