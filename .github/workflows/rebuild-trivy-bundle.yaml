@@ -1,0 +1,79 @@
+
+name: update-bundle-images
+
+on: [push, workflow_dispatch]
+
+  # Triggers the workflow every 1 minutes
+  #schedule:
+  #  - cron: "*/1 * * * *"
+
+jobs:
+  rebuild-trivy-bundle-images:
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    env:
+      TAGS_TO_FETCH: 3
+      NO_IMAGE_FLAG: "No Trivy Image Found"
+
+    steps:
+      - uses: actions/checkout@v3
+
+        with:
+          repository: mesosphere/dkp-insights
+          ref: main
+          submodules: 'true'
+          token: ${{ secrets.MERGEBOT_TOKEN }}
+
+        id: obtain-trivy-tags
+
+      - run: |
+          git fetch --all --tags
+          dkp_insights_tags=($(git tag | tail -n $TAGS_TO_FETCH))
+
+          trivy_image_tags=()
+
+          for tag in "${dkp_insights_tags[@]}"
+          do
+            git checkout ${tag}
+
+            trivy_image_tag=$(cat ./charts/dkp-insights/values.yaml | grep -o 'mesosphere/trivy-bundles:.*' | cut -f2- -d: || echo $NO_IMAGE_FLAG)
+
+            if [ "$trivy_image_tag" != "$NO_IMAGE_FLAG" ]; then
+              if [[ ! " ${trivy_image_tags[*]} " =~ " ${trivy_image_tag} " ]]; then
+                trivy_image_tags+=("$trivy_image_tag")
+              fi
+            fi
+
+          done
+
+          echo "trivy_image_tags=${trivy_image_tags[@]}" >> $GITHUB_ENV
+     # echo "Fetched $TAGS_TO_FETCH tags from dkp-insights repository" >> $GITHUB_STEP_SUMMARY
+     # echo "From there gathered ${#trivy_image_tags[@]} different Trivy image tags" >> $GITHUB_STEP_SUMMARY
+
+  # echo "::set-env name=trivy_image_tags::${trivy_image_tags[@]}"
+
+
+      - uses: actions/checkout@v3
+        with:
+          repository: mesosphere/trivy-bundles
+        id: build-and-publish-trivy-bundle-images
+      - run: |
+          echo "trivy image tags step 2: ${{ env.trivy_image_tags }}"
+          ls
+          pwd
+
+
+        
+
+# && cat ./charts/dkp-insights/values.yaml | grep 'mesosphere/trivy-bundles:'
+
+
+
+
+
+#      - uses: actions/checkout@v3
+#        with:
+#          repository: octokit/rest.js             # Download that repository.
+#          ref: ${{ steps.octokit.outputs.tag }}   # At the latest released version, found earlier.
