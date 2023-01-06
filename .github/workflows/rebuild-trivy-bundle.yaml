@@ -3,9 +3,14 @@ name: update-bundle-images
 
 on: [push, workflow_dispatch]
 
+
   # Triggers the workflow every 1 minutes
   #schedule:
   #  - cron: "*/1 * * * *"
+
+env:
+  TAGS_TO_FETCH: 3
+  TRIVY_IMAGE_NAME: mesosphere/trivy-bundles
 
 jobs:
   obtain-trivy-image-tags:
@@ -14,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      TAGS_TO_FETCH: 3
       NO_IMAGE_FLAG: "No Trivy Image Found"
 
     steps:
@@ -29,7 +33,7 @@ jobs:
       - run: git fetch --all --tags
       - run: |
           dkp_insights_tags=($(git tag | tail -n $TAGS_TO_FETCH))
-
+          trivy_image_tags=()
           for tag in "${dkp_insights_tags[@]}"
           do
             git checkout ${tag}
@@ -38,6 +42,7 @@ jobs:
 
             if [ "$trivy_image_tag" != "$NO_IMAGE_FLAG" ]; then
               if [[ ! " ${trivy_image_tags[*]} " =~ " ${trivy_image_tag} " ]]; then
+                trivy_image_tags+=("$trivy_image_tag")
                 echo "$trivy_image_tag" >> ./artifacts/tags-to-rebuild.txt
               fi
             fi
@@ -49,17 +54,31 @@ jobs:
           name: trivy-tags-to-rebuild
           path: ./artifacts/tags-to-rebuild.txt
 
+
   rebuild-trivy-bundle-images:
     needs: [obtain-trivy-image-tags]
 
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: mesosphere/trivy-bundles
+          ref: main
       - uses: actions/download-artifact@v3
         with:
           name: trivy-tags-to-rebuild
       - run: ls
+      - run: cat ./tags-to-rebuild.txt
+      
       - run: |
           while read tag; do
-            echo "$tag"
+
+            trivy_image_version=${tag%-*}
+            time_stamp=${tag##*-}
+
+            TRIVY_IMAGE_TAG=$trivy_image_version \
+              TIMESTAMP=$time_stamp \
+              OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
+              make publish-trivy-bundled-image
+
           done <tags-to-rebuild.txt
