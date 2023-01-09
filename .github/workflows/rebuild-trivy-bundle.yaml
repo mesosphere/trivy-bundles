@@ -1,0 +1,100 @@
+
+name: update-bundle-images
+
+on:
+
+  workflow_dispatch:
+
+  schedule:
+    # every 6 hours at the hour and 20 minutes (to avoid periods of high load)
+    - cron: "20 */6 * * *"
+
+env:
+  TAGS_TO_FETCH: 3
+  TRIVY_IMAGE_NAME: mesosphere/trivy-bundles
+
+jobs:
+  obtain-trivy-image-tags:
+
+    runs-on: ubuntu-latest
+
+    env:
+      NO_IMAGE_FLAG: "No Trivy Image Found"
+
+    steps:
+      - name: Clone dkp-insights Repository
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/dkp-insights
+          ref: main
+          submodules: 'false'
+          token: ${{ secrets.MERGEBOT_TOKEN }}
+
+      - name: Create Artifact TXT File
+        run: mkdir -p artifacts && touch ./artifacts/tags-to-rebuild.txt
+
+      - name: Fetch All Release Tags From dkp-insights Repository
+        run: git fetch --all --tags
+
+      - name: Obtain Trivy Image Names From Each dkp-insights Release Tag
+        run: |
+          dkp_insights_tags=($(git tag | tail -n $TAGS_TO_FETCH))
+          trivy_image_tags=()
+          for tag in "${dkp_insights_tags[@]}"
+          do
+            git checkout ${tag}
+
+            trivy_image_tag=$(cat ./charts/dkp-insights/values.yaml | grep -o 'mesosphere/trivy-bundles:.*' | cut -f2- -d: || echo $NO_IMAGE_FLAG)
+
+            if [ "$trivy_image_tag" != "$NO_IMAGE_FLAG" ]; then
+              if [[ ! " ${trivy_image_tags[*]} " =~ " ${trivy_image_tag} " ]]; then
+                if [[ ! -z "$trivy_image_tag" ]]; then
+                  trivy_image_tags+=("$trivy_image_tag")
+                  echo "$trivy_image_tag" >> ./artifacts/tags-to-rebuild.txt
+                fi
+              fi
+            fi
+
+          done
+
+      - name: Upload Artifact With Trivy Image Names
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-tags-to-rebuild
+          path: ./artifacts/tags-to-rebuild.txt
+
+
+  rebuild-trivy-bundle-images:
+    needs: [obtain-trivy-image-tags]
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone trivy-bundles Repository
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/trivy-bundles
+          ref: main
+      
+      - name: Download Artifact w/Trivy Image Names
+        uses: actions/download-artifact@v3
+        with:
+          name: trivy-tags-to-rebuild
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_READ_WRITE_USERNAME }}
+          password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
+
+      - name: Rebuild and Push Trivy Bundle Images
+        run: |
+          while read tag; do
+            trivy_image_version=${tag%-*}
+            time_stamp=${tag##*-}
+
+            TRIVY_IMAGE_TAG=$trivy_image_version \
+              TIMESTAMP=$time_stamp \
+              OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
+              make publish-trivy-bundled-image
+
+          done <tags-to-rebuild.txt
