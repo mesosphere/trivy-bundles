@@ -5,21 +5,29 @@ on:
 
   workflow_dispatch:
 
+  push:
+
   schedule:
-    # every 6 hours at the hour and 20 minutes (to avoid periods of high load)
-    - cron: "20 */6 * * *"
+    # at 6 a.m. every Wednesday
+    - cron: "0 6 * * 3"
 
 env:
-  TAGS_TO_FETCH: 3
+  TAGS_TO_FETCH: 2
   TRIVY_IMAGE_NAME: mesosphere/trivy-bundles
 
+  OBTAIN_TRIVY_IMAGE_TAGS_ACTIVATED: true
+  REBUILD_TRIVY_BUNDLE_IMAGES_ACTIVATED: false
+
+
 jobs:
+  # TODO: add condition to make the job run every OTHER week
   obtain-trivy-image-tags:
 
     runs-on: ubuntu-latest
 
     env:
-      NO_IMAGE_FLAG: "No Trivy Image Found"
+      # leave blank if you don't want to rebuild trivy-bundles image for the main branch
+      dkp_insights_main_branch_name: "origin/main"
 
     steps:
       - name: Clone dkp-insights Repository
@@ -33,26 +41,29 @@ jobs:
       - name: Create Artifact TXT File
         run: mkdir -p artifacts && touch ./artifacts/tags-to-rebuild.txt
 
-      - name: Fetch All Release Tags From dkp-insights Repository
-        run: git fetch --all --tags
+      - name: Fetch All Branches From dkp-insights Repository
+        run: git fetch --all
 
       - name: Obtain Trivy Image Names From Each dkp-insights Release Tag
         run: |
-          dkp_insights_tags=($(git tag | tail -n $TAGS_TO_FETCH))
-          trivy_image_tags=()
-          for tag in "${dkp_insights_tags[@]}"
+          dkp_insights_release_branches=($(git branch -r | grep 'origin/release' | tail -n $TAGS_TO_FETCH))
+
+          if [[ ! -z "dkp_insights_main_branch_name" ]]; then
+            dkp_insights_release_branches+=($dkp_insights_main_branch_name)
+          fi
+
+          echo "dkp_insights_release_branches: ${dkp_insights_release_branches[@]}"
+
+          for branch in "${dkp_insights_release_branches[@]}"
           do
-            git checkout ${tag}
+            git checkout ${branch}
 
-            trivy_image_tag=$(cat ./charts/dkp-insights/values.yaml | grep -o 'mesosphere/trivy-bundles:.*' | cut -f2- -d: || echo $NO_IMAGE_FLAG)
+            trivy_image_tag=$(cat ./charts/dkp-insights/values.yaml | grep -o 'mesosphere/trivy-bundles:.*' | cut -f2- -d: || :)
 
-            if [ "$trivy_image_tag" != "$NO_IMAGE_FLAG" ]; then
-              if [[ ! " ${trivy_image_tags[*]} " =~ " ${trivy_image_tag} " ]]; then
-                if [[ ! -z "$trivy_image_tag" ]]; then
-                  trivy_image_tags+=("$trivy_image_tag")
-                  echo "$trivy_image_tag" >> ./artifacts/tags-to-rebuild.txt
-                fi
-              fi
+            echo $trivy_image_tag
+
+            if [[ ! -z "$trivy_image_tag" ]]; then
+              echo "${branch}=${trivy_image_tag}" >> ./artifacts/tags-to-rebuild.txt
             fi
 
           done
@@ -87,6 +98,9 @@ jobs:
           password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
 
       - name: Rebuild and Push Trivy Bundle Images
+          
+        if: env.REBUILD_TRIVY_BUNDLE_IMAGES_ACTIVATED == 'true'
+
         run: |
           while read tag; do
             trivy_image_version=${tag%-*}
