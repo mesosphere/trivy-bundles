@@ -15,10 +15,6 @@ env:
   TAGS_TO_FETCH: 2
   TRIVY_IMAGE_NAME: mesosphere/trivy-bundles
 
-  OBTAIN_TRIVY_IMAGE_TAGS_ACTIVATED: true
-  REBUILD_TRIVY_BUNDLE_IMAGES_ACTIVATED: false
-
-
 jobs:
   # TODO: add condition to make the job run every OTHER week
   obtain-trivy-image-tags:
@@ -38,13 +34,13 @@ jobs:
           submodules: 'false'
           token: ${{ secrets.MERGEBOT_TOKEN }}
 
-      - name: Create Artifact TXT File
+      - name: Create Artifact for trivy-bundles Image Tags
         run: mkdir -p artifacts && touch ./artifacts/tags-to-rebuild.txt
 
-      - name: Fetch All Branches From dkp-insights Repository
-        run: git fetch --all
+      - name: Fetch All Branches from dkp-insights Repository
+        run: git fetch
 
-      - name: Obtain Trivy Image Names From Each dkp-insights Release Tag
+      - name: Obtain trivy-bundles Image Tags for each dkp-insights Release Branch
         run: |
           dkp_insights_release_branches=($(git branch -r | grep 'origin/release' | tail -n $TAGS_TO_FETCH))
 
@@ -56,7 +52,7 @@ jobs:
 
           for branch in "${dkp_insights_release_branches[@]}"
           do
-            git checkout ${branch}
+            git checkout $branch
 
             trivy_image_tag=$(cat ./charts/dkp-insights/values.yaml | grep -o 'mesosphere/trivy-bundles:.*' | cut -f2- -d: || :)
 
@@ -68,14 +64,14 @@ jobs:
 
           done
 
-      - name: Upload Artifact With Trivy Image Names
+      - name: Upload Artifact with trivy-bundles Image Tags
         uses: actions/upload-artifact@v3
         with:
           name: trivy-tags-to-rebuild
           path: ./artifacts/tags-to-rebuild.txt
 
 
-  rebuild-trivy-bundle-images:
+  rebuild-trivy-bundles-images:
     needs: [obtain-trivy-image-tags]
 
     runs-on: ubuntu-latest
@@ -86,29 +82,100 @@ jobs:
           repository: mesosphere/trivy-bundles
           ref: main
       
-      - name: Download Artifact w/Trivy Image Names
+      - name: Download Artifact with dkp-insights Release Branches and their trivy-bundles Image Tags
         uses: actions/download-artifact@v3
         with:
           name: trivy-tags-to-rebuild
 
+      - name: Create an Artifact for Saving Updated trivy-bundles Image Tags
+        run: mkdir -p artifacts && touch ./artifacts/updated-trivy-bundles-image-tags.txt
+      
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_READ_WRITE_USERNAME }}
           password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
 
-      - name: Rebuild and Push Trivy Bundle Images
-          
-        if: env.REBUILD_TRIVY_BUNDLE_IMAGES_ACTIVATED == 'true'
-
+      - name: Rebuild and Push Updated trivy-bundles Images
         run: |
-          while read tag; do
-            trivy_image_version=${tag%-*}
-            time_stamp=${tag##*-}
+          while read branch_and_tag; do
+            dkp_insights_branch=${branch_and_tag%=*}
+            trivy_bundles_image_tag=${branch_and_tag##*=}
+            trivy_image_version=${trivy_bundles_image_tag%-*}
+            updated_time_stamp=$(date -u +%Y%m%dT%H%M%SZ)
 
-            TRIVY_IMAGE_TAG=$trivy_image_version \
-              TIMESTAMP=$time_stamp \
-              OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
-              make publish-trivy-bundled-image
+            echo "dkp_insights_branch: $dkp_insights_branch"
+            echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
+            echo "trivy_image_version: $trivy_image_version"
+            echo "time_stamp: $updated_time_stamp"
+
+
+            
+            echo "${dkp_insights_branch}=${trivy_image_version}-${updated_time_stamp}" >> ./artifacts/updated-trivy-bundles-image-tags.txt
 
           done <tags-to-rebuild.txt
+
+#             TRIVY_IMAGE_TAG=$trivy_image_version \
+#               TIMESTAMP=$updated_time_stamp \
+#               OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
+#               make publish-trivy-bundled-image
+
+      - name: Upload Artifact with dkp-insights Release Branch Names and their Corresponding Updated trivy-bundles Image Tags
+        uses: actions/upload-artifact@v3
+        with:
+          name: updated-trivy-bundles-image-tags
+          path: ./artifacts/updated-trivy-bundles-image-tags.txt
+
+
+  update-dkp-insights-release-branches:
+    needs: [rebuild-trivy-bundles-images]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone dkp-insights Repository
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/dkp-insights
+          ref: main
+          submodules: 'false'
+          token: ${{ secrets.MERGEBOT_TOKEN }}
+
+      - name: Fetch All Branches from dkp-insights Repository
+        run: git fetch
+
+      - name: Set Git Global Username and Email
+        run: |
+          git config --global user.email "GHA@trivy-bundles-repository"
+          git config --global user.name "update-bundle-images workflow at trivy-bundles repository"
+
+      - name: Download Artifact with dkp-insights Release Branches and their Updated trivy-bundles Image Tags
+        uses: actions/download-artifact@v3
+        with:
+          name: updated-trivy-bundles-image-tags
+      
+      - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
+        run: |
+          while read branch_and_tag; do
+            dkp_insights_branch=${branch_and_tag%=*}
+            trivy_bundles_image_tag=${branch_and_tag##*=}
+            trivy_image_version=${trivy_bundles_image_tag%-*}
+            updated_time_stamp=$(date -u +%Y%m%dT%H%M%SZ)
+
+            echo "dkp_insights_branch: $dkp_insights_branch"
+            echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
+            echo "trivy_image_version: $trivy_image_version"
+            echo "time_stamp: $updated_time_stamp"
+
+            dkp_insights_branch_name=$( echo $dkp_insights_branch  | cut -f2- -d/ )
+
+            echo "dkp_insights_branch_name: $dkp_insights_branch_name"
+            git checkout -b GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name $dkp_insights_branch
+
+            replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_time_stamp
+            sed -i "s|$TRIVY_IMAGE_NAME:$trivy_image_version-[0-9]\{8\}T[0-9]\{6\}Z|$replace_string|" ./charts/dkp-insights/values.yaml
+
+            git add ./charts/dkp-insights/values.yaml
+            git commit -m "Updating trivy-bundles image on $(date -u +%Y-%m-%d)"
+            git push origin GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name
+
+          done <updated-trivy-bundles-image-tags.txt
+
