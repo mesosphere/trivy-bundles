@@ -152,6 +152,9 @@ jobs:
         with:
           name: updated-trivy-bundles-image-tags
       
+      - name: install HUB -> (It's a Git wrapper)
+        run: sudo apt install hub
+      
       - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
         run: |
           while read branch_and_tag; do
