@@ -2,13 +2,10 @@
 name: update-bundle-images
 
 on:
-
-  workflow_dispatch:
-
   push:
-
+  workflow_dispatch:
   schedule:
-    # at 6 a.m. every Wednesday
+    # at 6  a.m. every Wednesday
     - cron: "0 6 * * 3"
 
 env:
@@ -18,13 +15,10 @@ env:
 jobs:
   # TODO: add condition to make the job run every OTHER week
   obtain-trivy-image-tags:
-
     runs-on: ubuntu-latest
-
     env:
       # leave blank if you don't want to rebuild trivy-bundles image for the main branch
       dkp_insights_main_branch_name: "origin/main"
-
     steps:
       - name: Clone dkp-insights Repository
         uses: actions/checkout@v3
@@ -73,7 +67,6 @@ jobs:
 
   rebuild-trivy-bundles-images:
     needs: [obtain-trivy-image-tags]
-
     runs-on: ubuntu-latest
     steps:
       - name: Clone trivy-bundles Repository
@@ -115,10 +108,11 @@ jobs:
 
           done <tags-to-rebuild.txt
 
-#             TRIVY_IMAGE_TAG=$trivy_image_version \
-#               TIMESTAMP=$updated_time_stamp \
-#               OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
-#               make publish-trivy-bundled-image
+      
+      #   TRIVY_IMAGE_TAG=$trivy_image_version \
+      # TIMESTAMP=$updated_time_stamp \
+      # OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
+      # make publish-trivy-bundled-image
 
       - name: Upload Artifact with dkp-insights Release Branch Names and their Corresponding Updated trivy-bundles Image Tags
         uses: actions/upload-artifact@v3
@@ -131,32 +125,69 @@ jobs:
     needs: [rebuild-trivy-bundles-images]
     runs-on: ubuntu-latest
     steps:
+
+      - name: Reinstall Go for Current User
+        run: |
+          wget "https://go.dev/dl/$(curl 'https://go.dev/VERSION?m=text').linux-amd64.tar.gz"
+          sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz
+
+      - name: Create folder for cloning dkp-insights
+        run: |
+          sudo mkdir dkp-insights
+          sudo chmod  -R  0777 ./dkp-insights
+      
+      - name: Create folder for moving dkp-insights within go path
+        run: |
+          sudo mkdir -p //usr/local/go/src/github.com/mesosphere/dkp-insights
+          sudo chmod  -R  0777 //usr/local/go/src/github.com/mesosphere/dkp-insights
+
       - name: Clone dkp-insights Repository
         uses: actions/checkout@v3
         with:
           repository: mesosphere/dkp-insights
           ref: main
-          submodules: 'false'
+          submodules: 'true'
+          path: dkp-insights
           token: ${{ secrets.MERGEBOT_TOKEN }}
 
+      - name: Move dkp-insights Repository to GOPATH
+        run: |
+          mv ./dkp-insights/* ./dkp-insights/.[!.]* ./dkp-insights/..?* //usr/local/go/src/github.com/mesosphere/dkp-insights/ || :
+          cd //usr/local/go/src/github.com/mesosphere/dkp-insights
+          ls -a
+          
       - name: Fetch All Branches from dkp-insights Repository
+        working-directory: //usr/local/go/src/github.com/mesosphere/dkp-insights
         run: git fetch
 
       - name: Set Git Global Username and Email
         run: |
-          git config --global user.email "GHA@trivy-bundles-repository"
-          git config --global user.name "update-bundle-images workflow at trivy-bundles repository"
+          git config --global user.email "ci-mergebot@d2iq.com"
+          git config --global user.name "d2iq-mergebot"
 
       - name: Download Artifact with dkp-insights Release Branches and their Updated trivy-bundles Image Tags
         uses: actions/download-artifact@v3
         with:
           name: updated-trivy-bundles-image-tags
       
-      - name: install HUB -> (It's a Git wrapper)
+      - name: Move updated-trivy-bundles-image-tags artifact to dkp-insights repository
+        run: mv updated-trivy-bundles-image-tags.txt //usr/local/go/src/github.com/mesosphere/dkp-insights
+      
+      - name: Install Hub (wrapper for git for opening PRs)
         run: sudo apt install hub
       
       - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
+        working-directory: //usr/local/go/src/github.com/mesosphere/dkp-insights
+        env:
+          GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
         run: |
+          echo "setup environment"
+          export PATH=$PATH:/usr/local/go/bin
+          echo "GOPATH=/usr/local/go" >> ~/.bashrc
+          export GOPATH=/usr/local/go
+          export IR=${GOPATH}/src/github.com/mesosphere/dkp-insights
+          export PATH=${IR}/.local/tools:${PATH}
+
           while read branch_and_tag; do
             dkp_insights_branch=${branch_and_tag%=*}
             trivy_bundles_image_tag=${branch_and_tag##*=}
@@ -168,17 +199,23 @@ jobs:
             echo "trivy_image_version: $trivy_image_version"
             echo "time_stamp: $updated_time_stamp"
 
+            echo "checkout branch"
             dkp_insights_branch_name=$( echo $dkp_insights_branch  | cut -f2- -d/ )
-
-            echo "dkp_insights_branch_name: $dkp_insights_branch_name"
             git checkout -b GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name $dkp_insights_branch
 
+            echo "replace image tag name"
             replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_time_stamp
             sed -i "s|$TRIVY_IMAGE_NAME:$trivy_image_version-[0-9]\{8\}T[0-9]\{6\}Z|$replace_string|" ./charts/dkp-insights/values.yaml
 
+            echo "commit and push changes"
             git add ./charts/dkp-insights/values.yaml
             git commit -m "Updating trivy-bundles image on $(date -u +%Y-%m-%d)"
             git push origin GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name
 
-          done <updated-trivy-bundles-image-tags.txt
+            echo "open a pull request"
+            hub pull-request -m "trivy-bundles image automatic update $(date -u +%Y-%m-%d)" \
+              --no-edit \
+              --base $dkp_insights_branch_name \
+              --labels "ok-to-test","ready for review"
 
+          done <updated-trivy-bundles-image-tags.txt
