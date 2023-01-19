@@ -3,6 +3,7 @@ name: update-bundle-images
 
 on:
   workflow_dispatch:
+  push:
   schedule:
     # at 6  a.m. every Wednesday
     - cron: "0 6 * * 3"
@@ -155,17 +156,6 @@ jobs:
     needs: [rebuild-trivy-bundles-images, determine-if-workflow-should-run]
     runs-on: ubuntu-latest
     steps:
-      - name: Reinstall Go for Current User
-        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-        run: |
-          wget "https://go.dev/dl/$(curl 'https://go.dev/VERSION?m=text').linux-amd64.tar.gz"
-          sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz
-      
-      - name: Create folder for moving dkp-insights within go path
-        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-        run: |
-          sudo mkdir -p //usr/local/go/src/github.com/mesosphere/dkp-insights
-          sudo chmod  -R  0777 //usr/local/go/src/github.com/mesosphere/dkp-insights
 
       - name: Clone dkp-insights Repository
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
@@ -176,17 +166,10 @@ jobs:
           submodules: 'true'
           path: dkp-insights
           token: ${{ secrets.MERGEBOT_TOKEN }}
-
-      - name: Move dkp-insights Repository to GOPATH
-        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-        run: |
-          mv ./dkp-insights/* ./dkp-insights/.[!.]* ./dkp-insights/..?* //usr/local/go/src/github.com/mesosphere/dkp-insights/ || :
-          cd //usr/local/go/src/github.com/mesosphere/dkp-insights
-          ls -a
           
       - name: Fetch All Branches from dkp-insights Repository
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-        working-directory: //usr/local/go/src/github.com/mesosphere/dkp-insights
+        working-directory: dkp-insights
         run: git fetch
 
       - name: Set Git Global Username and Email
@@ -200,10 +183,9 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: updated-trivy-bundles-image-tags
-      
-      - name: Move updated-trivy-bundles-image-tags artifact to dkp-insights repository
-        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-        run: mv updated-trivy-bundles-image-tags.txt //usr/local/go/src/github.com/mesosphere/dkp-insights
+
+      - name: Move artifact to dkp-insights folder
+        run: mv updated-trivy-bundles-image-tags.txt dkp-insights
       
       - name: Install Hub (wrapper for git for opening PRs)
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
@@ -211,17 +193,10 @@ jobs:
       
       - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-        working-directory: //usr/local/go/src/github.com/mesosphere/dkp-insights
+        working-directory: dkp-insights
         env:
           GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
         run: |
-          echo "setup environment"
-          export PATH=$PATH:/usr/local/go/bin
-          echo "GOPATH=/usr/local/go" >> ~/.bashrc
-          export GOPATH=/usr/local/go
-          export IR=${GOPATH}/src/github.com/mesosphere/dkp-insights
-          export PATH=${IR}/.local/tools:${PATH}
-
           while read branch_and_tag; do
             dkp_insights_branch=${branch_and_tag%=*}
             trivy_bundles_image_tag=${branch_and_tag##*=}
