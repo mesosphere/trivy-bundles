@@ -160,12 +160,6 @@ jobs:
         run: |
           wget "https://go.dev/dl/$(curl 'https://go.dev/VERSION?m=text').linux-amd64.tar.gz"
           sudo tar -C /usr/local -xzf go*.linux-amd64.tar.gz
-
-      # - name: Create folder for cloning dkp-insights
-      #   if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-      #   run:
-      #     sudo mkdir dkp-insights
-      #     sudo chmod  0777 ./dkp-insights
       
       - name: Create folder for moving dkp-insights within go path
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
