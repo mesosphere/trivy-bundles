@@ -1,0 +1,230 @@
+
+name: update-bundle-images
+
+on:
+  workflow_dispatch:
+  push:
+  schedule:
+    # at 6  a.m. every Wednesday
+    - cron: "0 6 * * 3"
+
+env:
+  # WEEK_PARITY variable determines if the workflow will run on even or odd weeks.
+  # This is to complement the schedule.cron instruction, which does not support defining "every other week" type of schedules.
+  # Set as "even" to run only on weeks of the year whos parity is even, and "odd" for weeks of the year whos parity is odd.
+  WEEK_PARITY: "odd"
+  TAGS_TO_FETCH: 2
+  TRIVY_IMAGE_NAME: mesosphere/trivy-bundles
+
+jobs:
+  determine-if-workflow-should-run:
+    runs-on: ubuntu-latest
+    outputs:
+      WORKFLOW_SHOULD_RUN: ${{ steps.determine_if_workflow_should_run.outputs.WORKFLOW_SHOULD_RUN }}
+    steps:
+    - name: Check if Workflow Should Run Based on value of WEEK_PARITY
+      id: determine_if_workflow_should_run
+      run: |
+        WORKFLOW_SHOULD_RUN=true
+
+        week_number=$(date +%U)
+        if [ "$(($week_number % 2))" -eq 0 ] && [ $WEEK_PARITY = "odd" ]; then
+            WORKFLOW_SHOULD_RUN=false
+        elif [ "$(($week_number % 2))" -ne 0 ] && [ $WEEK_PARITY = "even" ]; then
+          WORKFLOW_SHOULD_RUN=false
+        fi
+        
+        echo "WORKFLOW_SHOULD_RUN=$WORKFLOW_SHOULD_RUN" >> $GITHUB_OUTPUT
+
+  obtain-trivy-image-tags:
+    needs: [determine-if-workflow-should-run]
+    runs-on: ubuntu-latest
+    env:
+      # leave blank if you don't want to rebuild trivy-bundles image for the main branch
+      dkp_insights_main_branch_name: "origin/main"
+    steps:
+      - name: Clone dkp-insights Repository
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/dkp-insights
+          ref: main
+          submodules: 'false'
+          token: ${{ secrets.MERGEBOT_TOKEN }}
+
+      - name: Create Artifact for trivy-bundles Image Tags
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: mkdir -p artifacts && touch ./artifacts/tags-to-rebuild.txt
+
+      - name: Fetch All Branches from dkp-insights Repository
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: git fetch
+
+      - name: Obtain trivy-bundles Image Tags for each dkp-insights Release Branch
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: |
+          dkp_insights_release_branches=($(git branch -r | grep 'origin/release' | tail -n $TAGS_TO_FETCH))
+
+          if [[ ! -z "dkp_insights_main_branch_name" ]]; then
+            dkp_insights_release_branches+=($dkp_insights_main_branch_name)
+          fi
+
+          echo "dkp_insights_release_branches: ${dkp_insights_release_branches[@]}"
+
+          for branch in "${dkp_insights_release_branches[@]}"
+          do
+            git checkout $branch
+
+            trivy_image_tag=$(cat ./charts/dkp-insights/values.yaml | grep -o 'mesosphere/trivy-bundles:.*' | cut -f2- -d: || :)
+
+            echo $trivy_image_tag
+
+            if [[ ! -z "$trivy_image_tag" ]]; then
+              echo "${branch}=${trivy_image_tag}" >> ./artifacts/tags-to-rebuild.txt
+            fi
+
+          done
+
+      - name: Upload Artifact with trivy-bundles Image Tags
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/upload-artifact@v3
+        with:
+          name: trivy-tags-to-rebuild
+          path: ./artifacts/tags-to-rebuild.txt
+
+
+  rebuild-trivy-bundles-images:
+    needs: [obtain-trivy-image-tags, determine-if-workflow-should-run]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone trivy-bundles Repository
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/trivy-bundles
+          ref: main
+      
+      - name: Download Artifact with dkp-insights Release Branches and their trivy-bundles Image Tags
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/download-artifact@v3
+        with:
+          name: trivy-tags-to-rebuild
+
+      - name: Create an Artifact for Saving Updated trivy-bundles Image Tags
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: mkdir -p artifacts && touch ./artifacts/updated-trivy-bundles-image-tags.txt
+      
+      - name: Login to Docker Hub
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_READ_WRITE_USERNAME }}
+          password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
+
+      - name: Rebuild and Push Updated trivy-bundles Images
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: |
+          while read branch_and_tag; do
+            dkp_insights_branch=${branch_and_tag%=*}
+            trivy_bundles_image_tag=${branch_and_tag##*=}
+            trivy_image_version=${trivy_bundles_image_tag%-*}
+            updated_time_stamp=$(date -u +%Y%m%dT%H%M%SZ)
+
+            echo "dkp_insights_branch: $dkp_insights_branch"
+            echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
+            echo "trivy_image_version: $trivy_image_version"
+            echo "time_stamp: $updated_time_stamp"
+
+            TRIVY_IMAGE_TAG=$trivy_image_version \
+              TIMESTAMP=$updated_time_stamp \
+              OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
+              make publish-trivy-bundled-image
+            
+            echo "${dkp_insights_branch}=${trivy_image_version}-${updated_time_stamp}" >> ./artifacts/updated-trivy-bundles-image-tags.txt
+
+          done <tags-to-rebuild.txt
+
+      - name: Upload Artifact with dkp-insights Release Branch Names and their Corresponding Updated trivy-bundles Image Tags
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/upload-artifact@v3
+        with:
+          name: updated-trivy-bundles-image-tags
+          path: ./artifacts/updated-trivy-bundles-image-tags.txt
+
+
+  update-dkp-insights-release-branches:
+    needs: [rebuild-trivy-bundles-images, determine-if-workflow-should-run]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Clone dkp-insights Repository
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/dkp-insights
+          ref: main
+          submodules: 'true'
+          path: dkp-insights
+          token: ${{ secrets.MERGEBOT_TOKEN }}
+          
+      - name: Fetch All Branches from dkp-insights Repository
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        working-directory: dkp-insights
+        run: git fetch
+
+      - name: Set Git Global Username and Email
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: |
+          git config --global user.email "ci-mergebot@d2iq.com"
+          git config --global user.name "d2iq-mergebot"
+
+      - name: Download Artifact with dkp-insights Release Branches and their Updated trivy-bundles Image Tags
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        uses: actions/download-artifact@v3
+        with:
+          name: updated-trivy-bundles-image-tags
+
+      - name: Move artifact to dkp-insights folder
+        run: mv updated-trivy-bundles-image-tags.txt dkp-insights
+      
+      - name: Install Hub (wrapper for git for opening PRs)
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        run: sudo apt install hub
+      
+      - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
+        if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+        working-directory: dkp-insights
+        env:
+          GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
+        run: |
+          while read branch_and_tag; do
+            dkp_insights_branch=${branch_and_tag%=*}
+            trivy_bundles_image_tag=${branch_and_tag##*=}
+            trivy_image_version=${trivy_bundles_image_tag%-*}
+            updated_time_stamp=$(date -u +%Y%m%dT%H%M%SZ)
+
+            echo "dkp_insights_branch: $dkp_insights_branch"
+            echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
+            echo "trivy_image_version: $trivy_image_version"
+            echo "time_stamp: $updated_time_stamp"
+
+            echo "checkout branch"
+            dkp_insights_branch_name=$( echo $dkp_insights_branch  | cut -f2- -d/ )
+            git checkout -b GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name $dkp_insights_branch
+
+            echo "replace image tag name"
+            replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_time_stamp
+            sed -i "s|$TRIVY_IMAGE_NAME:$trivy_image_version-[0-9]\{8\}T[0-9]\{6\}Z|$replace_string|" ./charts/dkp-insights/values.yaml
+
+            echo "commit and push changes"
+            git add ./charts/dkp-insights/values.yaml
+            git commit -m "Updating trivy-bundles image on $(date -u +%Y-%m-%d)"
+            git push origin GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name
+
+            echo "open a pull request"
+            hub pull-request -m "trivy-bundles image automatic update $(date -u +%Y-%m-%d)" \
+              --no-edit \
+              --base $dkp_insights_branch_name \
+              --labels "ok-to-test","ready for review"
+
+          done <updated-trivy-bundles-image-tags.txt
