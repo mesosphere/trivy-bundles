@@ -191,6 +191,16 @@ jobs:
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
         run: sudo apt install hub
       
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v4
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_config_global: true
+        
       - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
         if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
         working-directory: dkp-insights
