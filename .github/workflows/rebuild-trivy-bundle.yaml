@@ -3,7 +3,6 @@ name: update-bundle-images
 
 on:
   workflow_dispatch:
-  push:
   schedule:
     # at 6  a.m. every Wednesday
     - cron: "0 6 * * 3"
