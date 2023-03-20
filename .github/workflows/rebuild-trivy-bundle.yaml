@@ -193,7 +193,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
         run: |
-          updated_time_stamp=needs.rebuild-trivy-bundles-images.outputs.UPDATED_TIME_STAMP
+          updated_time_stamp=${{ needs.rebuild-trivy-bundles-images.outputs.UPDATED_TIME_STAMP }}
           while read branch_and_tag; do
             dkp_insights_branch=${branch_and_tag%=*}
             trivy_bundles_image_tag=${branch_and_tag##*=}
