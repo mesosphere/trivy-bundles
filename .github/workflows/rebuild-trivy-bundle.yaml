@@ -92,6 +92,8 @@ jobs:
     needs: [obtain-trivy-image-tags, determine-if-workflow-should-run]
     if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
     runs-on: ubuntu-latest
+    outputs:
+      UPDATED_TIME_STAMP: ${{ steps.rebuild_and_push_images.outputs.UPDATED_TIME_STAMP }}
     steps:
       - name: Clone trivy-bundles Repository
         uses: actions/checkout@v3
@@ -114,6 +116,7 @@ jobs:
           password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
 
       - name: Rebuild and Push Updated trivy-bundles Images
+        id: rebuild_and_push_images
         run: |
           updated_time_stamp=$(date -u +%Y%m%dT%H%M%SZ)
           while read branch_and_tag; do
