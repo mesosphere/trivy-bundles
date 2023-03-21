@@ -19,10 +19,10 @@ jobs:
   determine-if-workflow-should-run:
     runs-on: ubuntu-latest
     outputs:
-      WORKFLOW_SHOULD_RUN: ${{ steps.determine_if_workflow_should_run.outputs.WORKFLOW_SHOULD_RUN }}
+      WORKFLOW_SHOULD_RUN: ${{ steps.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN }}
     steps:
     - name: Check if Workflow Should Run Based on value of WEEK_PARITY
-      id: determine_if_workflow_should_run
+      id: determine-if-workflow-should-run
       run: |
         WORKFLOW_SHOULD_RUN=true
 
@@ -93,7 +93,7 @@ jobs:
     if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
     runs-on: ubuntu-latest
     outputs:
-      UPDATED_TIMESTAMP: ${{ steps.rebuild_and_push_images.outputs.UPDATED_TIMESTAMP }}
+      UPDATED_TIMESTAMP: ${{ steps.rebuild-and-push-images.outputs.UPDATED_TIMESTAMP }}
     steps:
       - name: Clone trivy-bundles Repository
         uses: actions/checkout@v3
@@ -116,7 +116,7 @@ jobs:
           password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
 
       - name: Rebuild and Push Updated trivy-bundles Images
-        id: rebuild_and_push_images
+        id: rebuild-and-push-images
         run: |
           updated_timestamp=$(date -u +%Y%m%dT%H%M%SZ)
           while read branch_and_tag; do
