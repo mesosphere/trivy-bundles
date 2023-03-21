@@ -93,7 +93,7 @@ jobs:
     if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
     runs-on: ubuntu-latest
     outputs:
-      UPDATED_TIME_STAMP: ${{ steps.rebuild_and_push_images.outputs.UPDATED_TIME_STAMP }}
+      UPDATED_TIMESTAMP: ${{ steps.rebuild_and_push_images.outputs.UPDATED_TIMESTAMP }}
     steps:
       - name: Clone trivy-bundles Repository
         uses: actions/checkout@v3
@@ -118,7 +118,7 @@ jobs:
       - name: Rebuild and Push Updated trivy-bundles Images
         id: rebuild_and_push_images
         run: |
-          updated_time_stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          updated_timestamp=$(date -u +%Y%m%dT%H%M%SZ)
           while read branch_and_tag; do
             dkp_insights_branch=${branch_and_tag%=*}
             trivy_bundles_image_tag=${branch_and_tag##*=}
@@ -127,17 +127,17 @@ jobs:
             echo "dkp_insights_branch: $dkp_insights_branch"
             echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
             echo "trivy_image_version: $trivy_image_version"
-            echo "time_stamp: $updated_time_stamp"
+            echo "time_stamp: $updated_timestamp"
 
             TRIVY_IMAGE_TAG=$trivy_image_version \
-              TIMESTAMP=$updated_time_stamp \
+              TIMESTAMP=$updated_timestamp \
               OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
               make publish-trivy-bundled-image
             
-            echo "${dkp_insights_branch}=${trivy_image_version}-${updated_time_stamp}" >> ./artifacts/updated-trivy-bundles-image-tags.txt
+            echo "${dkp_insights_branch}=${trivy_image_version}-${updated_timestamp}" >> ./artifacts/updated-trivy-bundles-image-tags.txt
 
           done <tags-to-rebuild.txt
-          echo "UPDATED_TIME_STAMP=$updated_time_stamp" >> $GITHUB_OUTPUT
+          echo "UPDATED_TIMESTAMP=$updated_timestamp" >> $GITHUB_OUTPUT
 
       - name: Upload Artifact with dkp-insights Release Branch Names and their Corresponding Updated trivy-bundles Image Tags
         uses: actions/upload-artifact@v3
@@ -196,7 +196,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
         run: |
-          updated_time_stamp=${{ needs.rebuild-trivy-bundles-images.outputs.UPDATED_TIME_STAMP }}
+          updated_timestamp=${{ needs.rebuild-trivy-bundles-images.outputs.UPDATED_TIMESTAMP }}
           while read branch_and_tag; do
             dkp_insights_branch=${branch_and_tag%=*}
             trivy_bundles_image_tag=${branch_and_tag##*=}
@@ -205,14 +205,14 @@ jobs:
             echo "dkp_insights_branch: $dkp_insights_branch"
             echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
             echo "trivy_image_version: $trivy_image_version"
-            echo "time_stamp: $updated_time_stamp"
+            echo "time_stamp: $updated_timestamp"
 
             echo "checkout branch"
             dkp_insights_branch_name=$( echo $dkp_insights_branch  | cut -f2- -d/ )
             git checkout -b GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name $dkp_insights_branch
 
             echo "replace image tag name"
-            replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_time_stamp
+            replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_timestamp
             sed -i "s|$TRIVY_IMAGE_NAME:$trivy_image_version-[0-9]\{8\}T[0-9]\{6\}Z|$replace_string|" ./charts/dkp-insights/values.yaml
 
             echo "commit and push changes"
