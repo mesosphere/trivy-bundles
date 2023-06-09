@@ -1,4 +1,4 @@
-TRIVY_IMAGE_TAG ?= 0.35.0
+TRIVY_IMAGE_TAG ?= 0.42.1
 OUTPUT_IMAGE ?= mesosphere/trivy-bundles
 
 TIMESTAMP ?= $(shell date -u +%Y%m%dT%H%M%SZ )

@@ -146,84 +146,84 @@ jobs:
           path: ./artifacts/updated-trivy-bundles-image-tags.txt
 
 
-  update-dkp-insights-release-branches:
-    needs: [rebuild-trivy-bundles-images, determine-if-workflow-should-run]
-    if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-    runs-on: ubuntu-latest
-    steps:
+  # update-dkp-insights-release-branches:
+  #   needs: [rebuild-trivy-bundles-images, determine-if-workflow-should-run]
+  #   if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
+  #   runs-on: ubuntu-latest
+  #   steps:
 
-      - name: Clone dkp-insights Repository
-        uses: actions/checkout@v3
-        with:
-          repository: mesosphere/dkp-insights
-          ref: main
-          submodules: 'true'
-          path: dkp-insights
-          token: ${{ secrets.MERGEBOT_TOKEN }}
+  #     - name: Clone dkp-insights Repository
+  #       uses: actions/checkout@v3
+  #       with:
+  #         repository: mesosphere/dkp-insights
+  #         ref: main
+  #         submodules: 'true'
+  #         path: dkp-insights
+  #         token: ${{ secrets.MERGEBOT_TOKEN }}
           
-      - name: Fetch All Branches from dkp-insights Repository
-        working-directory: dkp-insights
-        run: git fetch
+  #     - name: Fetch All Branches from dkp-insights Repository
+  #       working-directory: dkp-insights
+  #       run: git fetch
 
-      - name: Set Git Global Username and Email
-        run: |
-          git config --global user.email "ci-mergebot@d2iq.com"
-          git config --global user.name "d2iq-mergebot"
+  #     - name: Set Git Global Username and Email
+  #       run: |
+  #         git config --global user.email "ci-mergebot@d2iq.com"
+  #         git config --global user.name "d2iq-mergebot"
 
-      - name: Download Artifact with dkp-insights Release Branches and their Updated trivy-bundles Image Tags
-        uses: actions/download-artifact@v3
-        with:
-          name: updated-trivy-bundles-image-tags
+  #     - name: Download Artifact with dkp-insights Release Branches and their Updated trivy-bundles Image Tags
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: updated-trivy-bundles-image-tags
 
-      - name: Move artifact to dkp-insights folder
-        run: mv updated-trivy-bundles-image-tags.txt dkp-insights
+  #     - name: Move artifact to dkp-insights folder
+  #       run: mv updated-trivy-bundles-image-tags.txt dkp-insights
       
-      - name: Install Hub (wrapper for git for opening PRs)
-        run: sudo apt install hub
+  #     - name: Install Hub (wrapper for git for opening PRs)
+  #       run: sudo apt install hub
       
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v4
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          git_tag_gpgsign: true
-          git_config_global: true
+  #     - name: Import GPG key
+  #       uses: crazy-max/ghaction-import-gpg@v4
+  #       with:
+  #         gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+  #         passphrase: ${{ secrets.GPG_PASSPHRASE }}
+  #         git_user_signingkey: true
+  #         git_commit_gpgsign: true
+  #         git_tag_gpgsign: true
+  #         git_config_global: true
         
-      - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
-        working-directory: dkp-insights
-        env:
-          GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
-        run: |
-          updated_timestamp=${{ needs.rebuild-trivy-bundles-images.outputs.UPDATED_TIMESTAMP }}
-          while read branch_and_tag; do
-            dkp_insights_branch=${branch_and_tag%=*}
-            trivy_bundles_image_tag=${branch_and_tag##*=}
-            trivy_image_version=${trivy_bundles_image_tag%-*}
+  #     - name: Update trivy-bundles Image Tags in Each dkp-insights Release Branch and Open a Pull Request
+  #       working-directory: dkp-insights
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.MERGEBOT_TOKEN }}
+  #       run: |
+  #         updated_timestamp=${{ needs.rebuild-trivy-bundles-images.outputs.UPDATED_TIMESTAMP }}
+  #         while read branch_and_tag; do
+  #           dkp_insights_branch=${branch_and_tag%=*}
+  #           trivy_bundles_image_tag=${branch_and_tag##*=}
+  #           trivy_image_version=${trivy_bundles_image_tag%-*}
 
-            echo "dkp_insights_branch: $dkp_insights_branch"
-            echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
-            echo "trivy_image_version: $trivy_image_version"
-            echo "time_stamp: $updated_timestamp"
+  #           echo "dkp_insights_branch: $dkp_insights_branch"
+  #           echo "trivy_bundles_image_tag: $trivy_bundles_image_tag"
+  #           echo "trivy_image_version: $trivy_image_version"
+  #           echo "time_stamp: $updated_timestamp"
 
-            echo "checkout branch"
-            dkp_insights_branch_name=$( echo $dkp_insights_branch  | cut -f2- -d/ )
-            git checkout -b GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name $dkp_insights_branch
+  #           echo "checkout branch"
+  #           dkp_insights_branch_name=$( echo $dkp_insights_branch  | cut -f2- -d/ )
+  #           git checkout -b GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name $dkp_insights_branch
 
-            echo "replace image tag name"
-            replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_timestamp
-            sed -i "s|$TRIVY_IMAGE_NAME:$trivy_image_version-[0-9]\{8\}T[0-9]\{6\}Z|$replace_string|" ./charts/dkp-insights/values.yaml
+  #           echo "replace image tag name"
+  #           replace_string=$TRIVY_IMAGE_NAME:$trivy_image_version-$updated_timestamp
+  #           sed -i "s|$TRIVY_IMAGE_NAME:$trivy_image_version-[0-9]\{8\}T[0-9]\{6\}Z|$replace_string|" ./charts/dkp-insights/values.yaml
 
-            echo "commit and push changes"
-            git add ./charts/dkp-insights/values.yaml
-            git commit -m "Updating trivy-bundles image on $(date -u +%Y-%m-%d)"
-            git push origin GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name
+  #           echo "commit and push changes"
+  #           git add ./charts/dkp-insights/values.yaml
+  #           git commit -m "Updating trivy-bundles image on $(date -u +%Y-%m-%d)"
+  #           git push origin GHA/update-trivy-bundles-image-in/$dkp_insights_branch_name
 
-            echo "open a pull request"
-            hub pull-request -m "trivy-bundles image automatic update $(date -u +%Y-%m-%d)" \
-              --no-edit \
-              --base $dkp_insights_branch_name \
-              --labels "ok-to-test","ready for review"
+  #           echo "open a pull request"
+  #           hub pull-request -m "trivy-bundles image automatic update $(date -u +%Y-%m-%d)" \
+  #             --no-edit \
+  #             --base $dkp_insights_branch_name \
+  #             --labels "ok-to-test","ready for review"
 
-          done <updated-trivy-bundles-image-tags.txt
+  #         done <updated-trivy-bundles-image-tags.txt
