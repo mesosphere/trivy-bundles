@@ -76,7 +76,7 @@ jobs:
             echo $trivy_image_tag
 
             if [[ ! -z "$trivy_image_tag" ]]; then
-              echo "${branch}=${trivy_image_tag}" >> ./artifacts/tags-to-rebuild.txt
+              echo "${branch}=0.42.1" >> ./artifacts/tags-to-rebuild.txt
             fi
 
           done
