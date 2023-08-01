@@ -12,7 +12,7 @@ env:
   # This is to complement the schedule.cron instruction, which does not support defining "every other week" type of schedules.
   # Set as "even" to run only on weeks of the year whos parity is even, and "odd" for weeks of the year whos parity is odd.
   WEEK_PARITY: "odd"
-  TAGS_TO_FETCH: 2
+  TAGS_TO_FETCH: 3
   TRIVY_IMAGE_NAME: mesosphere/trivy-bundles
 
 jobs:
