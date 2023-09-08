@@ -28,7 +28,7 @@ clean:
 
 .PHONY: create-airgapped-image-bundle
 create-airgapped-image-bundle: ## Create airgapped image bundle
-create-airgapped-image-bundle: install-mindthegap publish-trivy-bundled-image
+create-airgapped-image-bundle: install-mindthegap latest_image_tag
 	$(call print-target)
 	$(MINDTHEGAP_BIN) create image-bundle --platform linux/amd64 --images-file $(IMAGES_FILE) --output-file $(IMAGE)-`cat $(TAGS_FILE)`.tar.gz
 
