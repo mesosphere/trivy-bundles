@@ -39,5 +39,13 @@ dist/
 .env
 .envrc
 
+# ignore all local tools
+.local/
+
 # ignore latest image tag
 latest_image_tag
+images.txt
+tags.txt
+
+# ignore all built airgapped bundles
+trivy-bundles-*.tar.gz

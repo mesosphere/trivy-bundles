@@ -129,9 +129,8 @@ jobs:
             echo "trivy_image_version: $trivy_image_version"
             echo "time_stamp: $updated_timestamp"
 
-            TRIVY_IMAGE_TAG=$trivy_image_version \
+            TRIVY_VERSION=$trivy_image_version \
               TIMESTAMP=$updated_timestamp \
-              OUTPUT_IMAGE=$TRIVY_IMAGE_NAME \
               make publish-trivy-bundled-image
             
             echo "${dkp_insights_branch}=${trivy_image_version}-${updated_timestamp}" >> ./artifacts/updated-trivy-bundles-image-tags.txt
