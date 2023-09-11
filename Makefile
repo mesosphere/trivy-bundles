@@ -76,7 +76,7 @@ install-mindthegap: $(MINDTHEGAP_BIN)
 
 $(MINDTHEGAP_BIN):
 	mkdir -p $(dir $@)
-	curl -Lf https://github.com/mesosphere/mindthegap/releases/download/$(MINDTHEGAP_VERSION)/mindthegap_$(MINDTHEGAP_VERSION)_$(OS)_$(ARCH).tar.gz | tar -xz -C $(TOOLS_DIR) --wildcards 'mindthegap'
+	curl -Lf https://github.com/mesosphere/mindthegap/releases/download/$(MINDTHEGAP_VERSION)/mindthegap_$(MINDTHEGAP_VERSION)_$(OS)_$(ARCH).tar.gz | tar -xz -C $(TOOLS_DIR) 'mindthegap'
 
 .PHONY: help
 help:
