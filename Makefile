@@ -42,7 +42,7 @@ publish-trivy-bundled-image: latest_image_tag
 latest_image_tag: ## Build an image with specified version and tag
 latest_image_tag:
 	$(call print-target)
-	docker build --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) -t $(IMAGE_NAME) .
+	docker build --platform linux/amd64 --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) -t $(IMAGE_NAME) .
 	echo $(IMAGE_NAME_FULL) > $(IMAGES_FILE)
 	echo $(TAG) > $(TAGS_FILE)
 
