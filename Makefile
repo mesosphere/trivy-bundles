@@ -53,7 +53,7 @@ TOOLS_DIR ?= $(ROOT_DIR)/.local/tools
 MINDTHEGAP_BIN = $(TOOLS_DIR)/mindthegap
 
 HOST_ARCH=$(shell uname -m)
-OS=$(shell uname | tr '[:upper:]' '[:lower:]')
+OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 
 ifeq ($(HOST_ARCH),amd64)
 ARCH := amd64
