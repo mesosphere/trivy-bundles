@@ -18,6 +18,23 @@ TAGS_FILE ?= $(ROOT_DIR)/tags.txt
 
 .DEFAULT_GOAL := help
 
+# Tooling needed for mindthegap
+MINDTHEGAP_VERSION ?= v1.11.0
+TOOLS_DIR ?= $(ROOT_DIR)/.local/tools
+
+MINDTHEGAP_BIN = $(TOOLS_DIR)/mindthegap
+
+HOST_ARCH=$(shell uname -m)
+OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
+
+ifeq ($(HOST_ARCH),amd64)
+ARCH := amd64
+else ifeq ($(HOST_ARCH),x86_64)
+ARCH := amd64
+else ifeq ($(HOST_ARCH),arm64)
+ARCH := amd64
+endif
+
 # Enable ONESHELL for all targets
 .ONESHELL:
 
@@ -45,23 +62,6 @@ latest_image_tag:
 	docker build --platform linux/amd64 --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) -t $(IMAGE_NAME) .
 	echo $(IMAGE_NAME_FULL) > $(IMAGES_FILE)
 	echo $(TAG) > $(TAGS_FILE)
-
-# Tooling needed for mindthegap
-MINDTHEGAP_VERSION ?= v1.11.0
-TOOLS_DIR ?= $(ROOT_DIR)/.local/tools
-
-MINDTHEGAP_BIN = $(TOOLS_DIR)/mindthegap
-
-HOST_ARCH=$(shell uname -m)
-OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
-
-ifeq ($(HOST_ARCH),amd64)
-ARCH := amd64
-else ifeq ($(HOST_ARCH),x86_64)
-ARCH := amd64
-else ifeq ($(HOST_ARCH),arm64)
-ARCH := amd64
-endif
 
 .PHONY: install-mindthegap
 install-mindthegap: ## Install mind-the-gap binary.
