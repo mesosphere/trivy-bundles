@@ -53,7 +53,7 @@ TOOLS_DIR ?= $(ROOT_DIR)/.local/tools
 MINDTHEGAP_BIN = $(TOOLS_DIR)/mindthegap
 
 HOST_ARCH=$(shell uname -m)
-HOST_OS=$(shell uname | tr '[:upper:]' '[:lower:]')
+OS=$(shell uname | tr '[:upper:]' '[:lower:]')
 
 ifeq ($(HOST_ARCH),amd64)
 ARCH := amd64
@@ -61,12 +61,6 @@ else ifeq ($(HOST_ARCH),x86_64)
 ARCH := amd64
 else ifeq ($(HOST_ARCH),arm64)
 ARCH := amd64
-endif
-
-ifeq ($(HOST_OS),linux)
-OS := linux
-else ifeq ($(HOST_OS),darwin)
-OS := darwin
 endif
 
 .PHONY: install-mindthegap
