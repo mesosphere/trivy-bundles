@@ -156,7 +156,7 @@ jobs:
         with:
           repository: mesosphere/dkp-insights
           ref: main
-          submodules: 'true'
+          submodules: 'false'
           path: dkp-insights
           token: ${{ secrets.MERGEBOT_TOKEN }}
           
