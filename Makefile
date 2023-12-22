@@ -16,6 +16,8 @@ IMAGE_BUNDLE = $(IMAGE)-$(TAG).tar.gz
 IMAGES_FILE ?= $(ROOT_DIR)/images.txt
 TAGS_FILE ?= $(ROOT_DIR)/tags.txt
 
+DISTROLESS_NON_ROOT_IMG ?= cgr.dev/chainguard/busybox:latest@sha256:6f61c4e219fe99c894ad50d65c40c7b1f3cc7c241ed56c5e19b7df8c94c9affc
+
 .DEFAULT_GOAL := help
 
 # Tooling needed for mindthegap
@@ -59,7 +61,7 @@ publish-trivy-bundled-image: latest_image_tag
 latest_image_tag: ## Build an image with specified version and tag
 latest_image_tag:
 	$(call print-target)
-	docker build --platform linux/amd64 --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) -t $(IMAGE_NAME) .
+	docker build --platform linux/amd64 --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) --build-arg DISTROLESS_NON_ROOT_IMG=$(DISTROLESS_NON_ROOT_IMG) -t $(IMAGE_NAME) .
 	echo $(IMAGE_NAME_FULL) > $(IMAGES_FILE)
 	echo $(TAG) > $(TAGS_FILE)
 
