@@ -223,6 +223,6 @@ jobs:
             hub pull-request -m "trivy-bundles image automatic update $(date -u +%Y-%m-%d)" \
               --no-edit \
               --base $dkp_insights_branch_name \
-              --labels "ok-to-test","ready for review"
+              --labels "ready for review"
 
           done <updated-trivy-bundles-image-tags.txt
