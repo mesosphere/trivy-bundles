@@ -1,0 +1,34 @@
+name: build-trivy-bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      trivyVersion:
+        description: 'Tag of the Trivy image to use as a base'
+        type: string
+        required: true
+
+jobs:
+  build-trivy-bundle:
+    runs-on: ubuntu-latest
+    outputs:
+      IMAGE_TIMESTAMP: ${{ steps.build-and-push-image.outputs.IMAGE_TIMESTAMP }}
+    steps:
+      - name: Clone trivy-bundles Repository
+        uses: actions/checkout@v3
+        with:
+          repository: mesosphere/trivy-bundles
+          ref: main
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_READ_WRITE_USERNAME }}
+          password: ${{ secrets.DOCKER_READ_WRITE_PASSWORD }}
+
+      - name: Build and push a trivy-bundles image
+        id: build-and-push-image
+        run: |
+          IMAGE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          TRIVY_VERSION=${{ inputs.trivyVersion }} TIMESTAMP=$IMAGE_TIMESTAMP make publish-trivy-bundled-image
+          echo "IMAGE_TIMESTAMP=$IMAGE_TIMESTAMP" >> $GITHUB_OUTPUT
