@@ -1,6 +1,6 @@
 TRIVY_VERSION ?= 0.45.1
 
-ROOT_DIR = $(shell cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ROOT_DIR := $(shell cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TIMESTAMP ?= $(shell date -u +%Y%m%dT%H%M%SZ )
 
 REGISTRY ?= docker.io
@@ -8,10 +8,10 @@ REPOSITORY ?= mesosphere
 IMAGE ?= trivy-bundles
 TAG ?= $(TRIVY_VERSION)-$(TIMESTAMP)
 
-IMAGE_NAME = $(REPOSITORY)/$(IMAGE):$(TAG)
-IMAGE_NAME_FULL = $(REGISTRY)/$(IMAGE_NAME)
+IMAGE_NAME := $(REPOSITORY)/$(IMAGE):$(TAG)
+IMAGE_NAME_FULL := $(REGISTRY)/$(IMAGE_NAME)
 
-IMAGE_BUNDLE = $(IMAGE)-$(TAG).tar.gz
+IMAGE_BUNDLE := $(IMAGE)-$(TAG).tar.gz
 
 IMAGES_FILE ?= $(ROOT_DIR)/images.txt
 TAGS_FILE ?= $(ROOT_DIR)/tags.txt
@@ -21,7 +21,7 @@ DISTROLESS_NON_ROOT_IMG ?= cgr.dev/chainguard/busybox:latest@sha256:6f61c4e219fe
 .DEFAULT_GOAL := help
 
 # Tooling needed for mindthegap
-MINDTHEGAP_VERSION ?= v1.11.0
+MINDTHEGAP_VERSION ?= v1.16.0
 TOOLS_DIR ?= $(ROOT_DIR)/.local/tools
 
 MINDTHEGAP_BIN = $(TOOLS_DIR)/mindthegap
@@ -47,7 +47,7 @@ clean:
 
 .PHONY: create-airgapped-image-bundle
 create-airgapped-image-bundle: ## Create airgapped image bundle
-create-airgapped-image-bundle: install-mindthegap latest_image_tag
+create-airgapped-image-bundle: install-mindthegap publish-trivy-bundled-image
 	$(call print-target)
 	$(MINDTHEGAP_BIN) create image-bundle --platform linux/amd64 --images-file $(IMAGES_FILE) --output-file $(IMAGE)-`cat $(TAGS_FILE)`.tar.gz
 
@@ -61,7 +61,7 @@ publish-trivy-bundled-image: latest_image_tag
 latest_image_tag: ## Build an image with specified version and tag
 latest_image_tag:
 	$(call print-target)
-	docker build --platform linux/amd64 --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) --build-arg DISTROLESS_NON_ROOT_IMG=$(DISTROLESS_NON_ROOT_IMG) -t $(IMAGE_NAME) .
+	docker build --platform linux/amd64 --build-arg TRIVY_IMAGE_TAG=$(TRIVY_VERSION) --build-arg TIMESTAMP=$(TIMESTAMP) --build-arg DISTROLESS_NON_ROOT_IMG=$(DISTROLESS_NON_ROOT_IMG) -t $(IMAGE_NAME_FULL) .
 	echo $(IMAGE_NAME_FULL) > $(IMAGES_FILE)
 	echo $(TAG) > $(TAGS_FILE)
 
