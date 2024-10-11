@@ -1,4 +1,4 @@
-TRIVY_VERSION ?= 0.45.1
+TRIVY_VERSION ?= 0.53.0
 
 ROOT_DIR := $(shell cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TIMESTAMP ?= $(shell date -u +%Y%m%dT%H%M%SZ )
