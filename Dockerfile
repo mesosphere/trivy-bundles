@@ -11,6 +11,7 @@ USER 65532
 
 # Download db and cache it.
 RUN trivy image --download-db-only --cache-dir /trivy_cache
+RUN ls -Rl /trivy_cache
 RUN trivy image --download-java-db-only --cache-dir /trivy_cache
 RUN ls -Rl /trivy_cache
 
