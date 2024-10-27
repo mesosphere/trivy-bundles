@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       trivyVersion:
-        description: 'Tag of the Trivy image to use as a base'
+        description: "Tag of the Trivy image to use as a base"
         type: string
         required: true
 
@@ -22,12 +22,17 @@ jobs:
           #CRITICAL: Revert this back to main before merging
           #ref: main
           ref: ${{ github.ref_name }}
-    
+
+      - name: Install xz utils
+        id: install-xz-utils
+        run: |
+          sudo apt-get install xz-utils
+
       - name: Install devbox
         uses: jetify-com/devbox-install-action@v0.11.0
         with:
           enable-cache: true
-          skip-nix-installation: "true"          
+          skip-nix-installation: "true"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
