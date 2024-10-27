@@ -11,7 +11,7 @@ on:
 jobs:
   build-trivy-bundle:
     runs-on:
-      - self-hosted-nutanix-dind-large
+      - self-hosted-nutanix-docker-large
     outputs:
       IMAGE_TIMESTAMP: ${{ steps.build-and-push-image.outputs.IMAGE_TIMESTAMP }}
     steps:
