@@ -47,8 +47,5 @@ jobs:
         id: build-and-push-image
         run: |
           IMAGE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-          TRIVY_VERSION=${{ inputs.trivyVersion }}
-          TIMESTAMP=$IMAGE_TIMESTAMP
-          devbox run -- make --version
-          devbox run -- make publish-trivy-bundled-image
+          devbox run -- TIMESTAMP=$IMAGE_TIMESTAMP TRIVY_VERSION=${{ inputs.trivyVersion }} make publish-trivy-bundled-image
           echo "IMAGE_TIMESTAMP=$IMAGE_TIMESTAMP" >> $GITHUB_OUTPUT
