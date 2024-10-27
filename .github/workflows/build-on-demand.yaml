@@ -12,6 +12,7 @@ jobs:
   build-trivy-bundle:
     runs-on:
       - self-hosted-nutanix-docker-large
+      #- ubuntu-latest
     outputs:
       IMAGE_TIMESTAMP: ${{ steps.build-and-push-image.outputs.IMAGE_TIMESTAMP }}
     steps:
@@ -46,6 +47,10 @@ jobs:
       - name: Build and push a trivy-bundles image
         id: build-and-push-image
         run: |
+          # IMAGE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          # TRIVY_VERSION=${{ inputs.trivyVersion }} TIMESTAMP=$IMAGE_TIMESTAMP make publish-trivy-bundled-image
+          # echo "IMAGE_TIMESTAMP=$IMAGE_TIMESTAMP" >> $GITHUB_OUTPUT
+
           IMAGE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-          devbox run -- TIMESTAMP=$IMAGE_TIMESTAMP TRIVY_VERSION=${{ inputs.trivyVersion }} make publish-trivy-bundled-image
+          devbox run -- make publish-trivy-bundled-image -e TRIVY_VERSION=${{ inputs.trivyVersion }} -e TIMESTAMP=$IMAGE_TIMESTAMP
           echo "IMAGE_TIMESTAMP=$IMAGE_TIMESTAMP" >> $GITHUB_OUTPUT
