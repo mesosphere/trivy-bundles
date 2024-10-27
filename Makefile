@@ -1,4 +1,6 @@
-TRIVY_VERSION ?= 0.53.0
+ifeq ($(origin TRIVY_VERSION), undefined)
+$(error Required env-var TRIVY_VERSION has not been set, please set TRIVY_VERSION to the version matching the NKP/DKP release. See README for details)	
+endif 
 
 ROOT_DIR := $(shell cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 TIMESTAMP ?= $(shell date -u +%Y%m%dT%H%M%SZ )
