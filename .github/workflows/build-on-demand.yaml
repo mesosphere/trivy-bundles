@@ -22,7 +22,13 @@ jobs:
           #CRITICAL: Revert this back to main before merging
           #ref: main
           ref: ${{ github.ref_name }}
-      
+    
+      - name: Install devbox
+        uses: jetify-com/devbox-install-action@v0.11.0
+        with:
+          enable-cache: true
+          skip-nix-installation: "true"          
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -33,5 +39,8 @@ jobs:
         id: build-and-push-image
         run: |
           IMAGE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-          TRIVY_VERSION=${{ inputs.trivyVersion }} TIMESTAMP=$IMAGE_TIMESTAMP make publish-trivy-bundled-image
+          TRIVY_VERSION=${{ inputs.trivyVersion }}
+          TIMESTAMP=$IMAGE_TIMESTAMP
+          devbox run -- make --version
+          devbox run -- make publish-trivy-bundled-image
           echo "IMAGE_TIMESTAMP=$IMAGE_TIMESTAMP" >> $GITHUB_OUTPUT
