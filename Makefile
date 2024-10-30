@@ -18,7 +18,7 @@ IMAGE_BUNDLE := $(IMAGE)-$(TAG).tar.gz
 IMAGES_FILE ?= $(ROOT_DIR)/images.txt
 TAGS_FILE ?= $(ROOT_DIR)/tags.txt
 
-DISTROLESS_NON_ROOT_IMG ?= cgr.dev/chainguard/busybox:latest@sha256:6f61c4e219fe99c894ad50d65c40c7b1f3cc7c241ed56c5e19b7df8c94c9affc
+DISTROLESS_NON_ROOT_IMG ?= cgr.dev/chainguard/busybox:latest@sha256:5c46e3a84fa2c0e9cb556bd5aacab23d9e36a0a35b65875406b2a6ac49e7ac92
 
 .DEFAULT_GOAL := help
 
