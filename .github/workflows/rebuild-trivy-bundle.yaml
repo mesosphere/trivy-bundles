@@ -82,7 +82,7 @@ jobs:
           done
 
       - name: Upload Artifact with trivy-bundles Image Tags
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: trivy-tags-to-rebuild
           path: ./artifacts/tags-to-rebuild.txt
@@ -102,7 +102,7 @@ jobs:
           ref: main
       
       - name: Download Artifact with dkp-insights Release Branches and their trivy-bundles Image Tags
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: trivy-tags-to-rebuild
 
@@ -139,7 +139,7 @@ jobs:
           echo "UPDATED_TIMESTAMP=$updated_timestamp" >> $GITHUB_OUTPUT
 
       - name: Upload Artifact with dkp-insights Release Branch Names and their Corresponding Updated trivy-bundles Image Tags
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: updated-trivy-bundles-image-tags
           path: ./artifacts/updated-trivy-bundles-image-tags.txt
@@ -170,7 +170,7 @@ jobs:
           git config --global user.name "d2iq-mergebot"
 
       - name: Download Artifact with dkp-insights Release Branches and their Updated trivy-bundles Image Tags
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: updated-trivy-bundles-image-tags
 
