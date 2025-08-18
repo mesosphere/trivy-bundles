@@ -9,6 +9,9 @@ Run `make help` to discover all of them.
 
 |DKP/NKP Version |Trivy Version|
 |-|-|
+|NKP 2.16.x|0.64.1|
+|NKP 2.15.x|0.59.0|
+|NKP 2.14.x|0.59.0|
 |NKP 2.13.x|0.56.2|
 |NKP 2.12.x|0.53.0|
 |DKP 2.8.x|0.49.1|
