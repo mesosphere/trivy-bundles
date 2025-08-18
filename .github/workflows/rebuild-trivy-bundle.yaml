@@ -17,7 +17,7 @@ env:
 
 jobs:
   determine-if-workflow-should-run:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-nutanix-medium
     outputs:
       WORKFLOW_SHOULD_RUN: ${{ steps.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN }}
     steps:
@@ -38,7 +38,7 @@ jobs:
   obtain-trivy-image-tags:
     needs: [determine-if-workflow-should-run]
     if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-nutanix-medium
     env:
       # leave blank if you don't want to rebuild trivy-bundles image for the main branch
       dkp_insights_main_branch_name: "origin/main"
@@ -91,7 +91,7 @@ jobs:
   rebuild-trivy-bundles-images:
     needs: [obtain-trivy-image-tags, determine-if-workflow-should-run]
     if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-nutanix-medium
     outputs:
       UPDATED_TIMESTAMP: ${{ steps.rebuild-and-push-images.outputs.UPDATED_TIMESTAMP }}
     steps:
@@ -148,7 +148,7 @@ jobs:
   update-dkp-insights-release-branches:
     needs: [rebuild-trivy-bundles-images, determine-if-workflow-should-run]
     if: needs.determine-if-workflow-should-run.outputs.WORKFLOW_SHOULD_RUN
-    runs-on: ubuntu-latest
+    runs-on: self-hosted-nutanix-medium
     steps:
 
       - name: Clone dkp-insights Repository
