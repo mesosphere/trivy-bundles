@@ -27,10 +27,10 @@ jobs:
           sudo apt-get install xz-utils
 
       - name: Install NIX
-        uses: cachix/install-nix-action@V27
+        uses: cachix/install-nix-action@v31
   
       - name: Install devbox
-        uses: jetify-com/devbox-install-action@v0.11.0
+        uses: jetify-com/devbox-install-action@v0.14.0
         with:
           enable-cache: true
           skip-nix-installation: "true"
@@ -45,5 +45,5 @@ jobs:
         id: build-and-push-image
         run: |
           IMAGE_TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
-          devbox run -- make publish-trivy-bundled-image -e TRIVY_VERSION=${{ inputs.trivyVersion }} -e TIMESTAMP=$IMAGE_TIMESTAMP
+          devbox run -- make publish-trivy-bundled-image -e TRIVY_VERSION=${{ inputs.trivyVersion }} -e TIMESTAMP=$IMAGE_TIMESTAMP -e ROOT_DIR=${{ github.WORKSPACE }}
           echo "IMAGE_TIMESTAMP=$IMAGE_TIMESTAMP" >> $GITHUB_OUTPUT
